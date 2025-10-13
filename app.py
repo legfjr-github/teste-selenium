@@ -5,6 +5,7 @@ import time
 import openpyxl
 from pathlib import Path
 import os
+import requests
 
 # --- CONFIGURAÇÃO (sem alterações) ---
 URL_API_LIKE = "https://hentaifox.com/includes/add_like.php"
