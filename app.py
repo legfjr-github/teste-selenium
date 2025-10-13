@@ -1,5 +1,7 @@
 import streamlit as st
-import undetected_chromedriver as uc
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -27,19 +29,24 @@ def run_automation(caminho_arquivo, total_repeticoes):
         return None
 
     # Configuração do Driver
-    options = uc.ChromeOptions()
+    options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-gpu')
     options.add_argument("--window-size=720,480")
+    # Adiciona um user-agent para parecer um navegador real
+    options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
 
     driver = None
     try:
-        driver = uc.Chrome(options=options)
+        # Usa o webdriver-manager para instalar e configurar o driver automaticamente
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=options)
         driver.set_window_size(720, 480)
     except Exception as e:
         st.error(f"Ocorreu um erro ao iniciar o driver: {e}")
+        st.info("Dica: Certifique-se de que o Google Chrome está instalado em seu sistema.")
         return None
         
     log_placeholder = st.empty()
