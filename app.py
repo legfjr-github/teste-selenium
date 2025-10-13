@@ -1,5 +1,5 @@
 import streamlit as st
-import requests
+import cloudscraper # <-- MUDANÇA IMPORTANTE
 from bs4 import BeautifulSoup
 import time
 import openpyxl
@@ -15,30 +15,25 @@ HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit
 
 def run_automation(caminho_arquivo, total_repeticoes):
     caminho_salva = str(caminho_arquivo).replace('.xlsx', '_PROGRESSO.xlsx')
-
     try:
         wb = openpyxl.load_workbook(caminho_arquivo)
         ws = wb.active
-        if ws['C1'].value != 'Status':
-            ws['C1'] = 'Status'
-            wb.save(caminho_salva)
+        if ws['C1'].value != 'Status': ws['C1'] = 'Status'; wb.save(caminho_salva)
     except Exception as e:
-        st.error(f"Não foi possível abrir o arquivo Excel: {e}")
-        return None
+        st.error(f"Não foi possível abrir o arquivo Excel: {e}"); return None
 
     log_placeholder = st.empty()
     log_text = ""
 
-    # O loop principal de repetições
     for i in range(total_repeticoes):
         log_text += f"--- INICIANDO REPETIÇÃO {i+1} DE {total_repeticoes} (NOVA SESSÃO) ---\n"
         log_placeholder.code(log_text)
         
         # --- MUDANÇA CRUCIAL AQUI ---
-        # Criamos uma NOVA sessão para CADA repetição.
-        # Isso garante que teremos um novo PHPSESSID a cada vez.
-        session = requests.Session()
-        session.headers.update(HEADERS)
+        # Usamos cloudscraper em vez de requests.Session()
+        # Ele se comporta da mesma forma, mas contorna proteções como a do Cloudflare.
+        scraper = cloudscraper.create_scraper()
+        scraper.headers.update(HEADERS)
 
         for row_index, row in enumerate(ws.iter_rows(min_row=2, values_only=False), start=2):
             link_cell, nome_pagina_cell, status_cell = row[0], row[1], row[2]
@@ -46,94 +41,85 @@ def run_automation(caminho_arquivo, total_repeticoes):
             gallery_link = link_cell.value
             nome_pagina = nome_pagina_cell.value
 
-            if not gallery_link or not nome_pagina:
-                continue
+            if not gallery_link or not nome_pagina: continue
 
             log_text += f"\n[Linha {row_index}, Rep {i+1}] Processando: '{nome_pagina}'\n"
             log_placeholder.code(log_text)
 
             try:
-                log_text += "  - Iniciando sessão e buscando token de segurança...\n"
+                log_text += "  - Contornando segurança e buscando token...\n"
                 log_placeholder.code(log_text)
-                response_page = session.get(gallery_link)
+                
+                # Usamos scraper.get() em vez de session.get()
+                response_page = scraper.get(gallery_link)
                 response_page.raise_for_status()
 
                 soup = BeautifulSoup(response_page.text, 'lxml')
                 token_input = soup.find('input', {'name': 'X-Csrf-Token'})
                 
                 if not token_input or not token_input.has_attr('value'):
-                    raise ValueError("Não foi possível encontrar o X-Csrf-Token na página.")
+                    # Se falhar, podemos salvar o HTML para ver o que o script está recebendo
+                    with open("debug_page.html", "w", encoding="utf-8") as f:
+                        f.write(response_page.text)
+                    raise ValueError("Não foi possível encontrar o X-Csrf-Token. Verifique o arquivo 'debug_page.html' para ver a resposta do site.")
                 
                 csrf_token = token_input['value']
-                log_text += f"  - Sessão iniciada e Token encontrado: ...{csrf_token[-6:]}\n"
+                log_text += f"  - Token encontrado: ...{csrf_token[-6:]}\n"
                 log_placeholder.code(log_text)
 
                 gallery_id = gallery_link.strip('/').split('/')[-1]
                 payload = {'gallery_id': gallery_id}
-                
                 dynamic_headers = {'X-Csrf-Token': csrf_token, 'Referer': gallery_link}
 
-                log_text += f"  - Enviando LIKE para galeria ID {gallery_id}...\n"
-                log_placeholder.code(log_text)
-                response_like = session.post(URL_API_LIKE, data=payload, headers=dynamic_headers)
+                log_text += f"  - Enviando LIKE para galeria ID {gallery_id}...\n"; log_placeholder.code(log_text)
+                # Usamos scraper.post()
+                response_like = scraper.post(URL_API_LIKE, data=payload, headers=dynamic_headers)
                 response_like.raise_for_status()
-                log_text += "  - LIKE enviado com sucesso.\n"
-                log_placeholder.code(log_text)
+                log_text += "  - LIKE enviado com sucesso.\n"; log_placeholder.code(log_text)
                 time.sleep(1.5)
 
-                log_text += f"  - Enviando FAP para galeria ID {gallery_id}...\n"
-                log_placeholder.code(log_text)
-                response_fap = session.post(URL_API_FAP, data=payload, headers=dynamic_headers)
+                log_text += f"  - Enviando FAP para galeria ID {gallery_id}...\n"; log_placeholder.code(log_text)
+                # Usamos scraper.post()
+                response_fap = scraper.post(URL_API_FAP, data=payload, headers=dynamic_headers)
                 response_fap.raise_for_status()
-                log_text += "  - FAP enviado com sucesso.\n"
-                log_placeholder.code(log_text)
+                log_text += "  - FAP enviado com sucesso.\n"; log_placeholder.code(log_text)
                 
                 status_cell.value = f"Sucesso na repetição {i+1}"
-                log_text += f"  -> SUCESSO para '{nome_pagina}'\n"
-                log_placeholder.code(log_text)
+                log_text += f"  -> SUCESSO para '{nome_pagina}'\n"; log_placeholder.code(log_text)
                 time.sleep(1.5)
 
             except requests.exceptions.HTTPError as e:
-                erro_msg = f"Erro HTTP {e.response.status_code} na rep {i+1}"
-                status_cell.value = erro_msg
+                erro_msg = f"Erro HTTP {e.response.status_code} na rep {i+1}"; status_cell.value = erro_msg
                 log_text += f"  -> ERRO: {erro_msg}\n"; log_placeholder.code(log_text)
             except Exception as e:
-                erro_msg = f"Erro inesperado na rep {i+1}: {e}"
-                status_cell.value = erro_msg
+                erro_msg = f"Erro inesperado na rep {i+1}: {e}"; status_cell.value = erro_msg
                 log_text += f"  -> ERRO: {erro_msg}\n"; log_placeholder.code(log_text)
             
             finally:
                 try: wb.save(caminho_salva)
                 except Exception as e: log_text += f"  !!! AVISO: Falha ao salvar progresso: {e}\n"; log_placeholder.code(log_text)
 
-    log_text += "\n--- Processo concluído ---\n"
-    log_placeholder.code(log_text)
+    log_text += "\n--- Processo concluído ---\n"; log_placeholder.code(log_text)
     return caminho_salva
 
 # --- Interface do Streamlit (sem alterações) ---
 st.set_page_config(page_title="Automatizador de Cliques", layout="wide")
 st.title("Teste")
 st.write("Faça o upload de uma planilha .xlsx com os links na primeira coluna e os nomes na segunda. O processo é 100% automático.")
-
 uploaded_file = st.file_uploader("Escolha a planilha Excel", type="xlsx")
 total_repeticoes = st.number_input("Digite o número de repetições por link", min_value=1, value=1, step=1)
-
 if st.button("Iniciar Automação"):
     if uploaded_file is not None:
         path = Path.cwd() / uploaded_file.name
         with open(path, "wb") as f: f.write(uploaded_file.getbuffer())
-        
         st.info("Iniciando o processo de automação... Por favor, aguarde.")
         caminho_resultado = run_automation(path, total_repeticoes)
-        
         if caminho_resultado and os.path.exists(caminho_resultado):
             st.success("Automação concluída!")
             with open(caminho_resultado, "rb") as file:
                 st.download_button(label="Baixar Planilha com Resultados", data=file, file_name=os.path.basename(caminho_resultado), mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-            os.remove(path)
-            os.remove(caminho_resultado)
+            os.remove(path); os.remove(caminho_resultado)
         else:
             st.error("A automação falhou ou foi interrompida.")
             if os.path.exists(path): os.remove(path)
-    else:
-        st.warning("Por favor, faça o upload de um arquivo para iniciar.")
+    else: st.warning("Por favor, faça o upload de um arquivo para iniciar.")
