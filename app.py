@@ -112,7 +112,7 @@ def run_automation(caminho_arquivo, total_repeticoes):
 
 # --- Interface do Streamlit (sem alterações) ---
 st.set_page_config(page_title="Automatizador de Cliques", layout="wide")
-st.title("Automatizador de Cliques para HentaiFox")
+st.title("Teste")
 st.write("Faça o upload de uma planilha .xlsx com os links na primeira coluna e os nomes na segunda. O processo é 100% automático.")
 
 uploaded_file = st.file_uploader("Escolha a planilha Excel", type="xlsx")
