@@ -1,4 +1,5 @@
 streamlit
-selenium
+requests
 openpyxl
-webdriver-manager
+beautifulsoup4
+lxml
