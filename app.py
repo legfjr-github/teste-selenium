@@ -8,11 +8,6 @@ import os
 import requests
 
 # --- CONFIGURAÇÃO (sem alterações) ---
-URL_API_LIKE = "https://hentaifox.com/includes/add_like.php"
-URL_API_FAP = "https://hentaifox.com/includes/add_fap.php"
-HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36', 'Accept': '*/*', 'Accept-Language': 'en-US,en;q=0.5', 'Origin': 'https://hentaifox.com', 'DNT': '1', 'Connection': 'keep-alive', 'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-origin', 'X-Requested-With': 'XMLHttpRequest' }
-# --- FIM DA CONFIGURAÇÃO ---
-
 
 def run_automation(caminho_arquivo, total_repeticoes):
     caminho_salva = str(caminho_arquivo).replace('.xlsx', '_PROGRESSO.xlsx')
